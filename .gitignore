@@ -1,17 +1,28 @@
-# Virtual environments
+# Python
 venv/
 backend/venv/
-
-# Python cache
 __pycache__/
 *.pyc
 
-# Node modules
+# Database
+*.db
+
+# Node
 node_modules/
 
-# VS Code
-.vscode/
+# Vue build
+dist/
 
-# OS files
+# OS
 .DS_Store
-Thumbs.db
+
+# Logs
+*.log
+
+# Celery / Redis
+*.pid
+*.sock
+
+# Reports & exports
+backend/exports/
+backend/reports/

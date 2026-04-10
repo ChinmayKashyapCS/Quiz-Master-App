@@ -5,13 +5,8 @@ from flask import request, current_app
 from flask_caching import Cache
 from env.extensions import cache
 
-
-
-
-
 class ChapterAPI(Resource):
 
-    # -------------------- GET CHAPTERS --------------------
     @jwt_required()
     @cache.cached(
         timeout=300,
@@ -38,8 +33,6 @@ class ChapterAPI(Resource):
 
         return {"chapters": [c.to_json() for c in chapters]}, 200
 
-
-    # -------------------- CREATE CHAPTER (ADMIN ONLY) --------------------
     @jwt_required()
     def post(self):
         user_id = int(get_jwt_identity())
@@ -81,7 +74,6 @@ class ChapterAPI(Resource):
         }, 201
 
 
-    # -------------------- UPDATE CHAPTER (ADMIN ONLY) --------------------
     @jwt_required()
     def patch(self, chapter_id):
         user_id = int(get_jwt_identity())
@@ -116,7 +108,6 @@ class ChapterAPI(Resource):
         }, 200
 
 
-    # -------------------- DELETE CHAPTER (ADMIN ONLY) --------------------
     @jwt_required()
     def delete(self, chapter_id):
         user_id = int(get_jwt_identity())
@@ -132,7 +123,7 @@ class ChapterAPI(Resource):
         db.session.delete(chapter)
         db.session.commit()
 
-        # 🔴 Clear cache after deletion
+
         cache.clear()
 
         return {"message": "Chapter deleted successfully"}, 200

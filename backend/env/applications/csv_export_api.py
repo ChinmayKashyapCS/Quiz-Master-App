@@ -12,11 +12,23 @@ class CSVExportAPI(Resource):
 
     @jwt_required()
     def post(self):
+
         try:
-            task = export_user_scores_csv.delay(int(get_jwt_identity()))
-            return {"message": "CSV export started", "task_id": task.id}, 202
+
+            user_id = int(get_jwt_identity())
+
+            task = export_user_scores_csv.delay(user_id)
+
+            return {
+                "message": "CSV export started. You will receive an email shortly.",
+                "task_id": task.id,
+                "status": "processing"
+            }, 202
+
         except OperationalError:
-            return {"message": "CSV service unavailable"}, 503
+            return {
+                "message": "CSV service unavailable"
+            }, 503
 
 
 class AdminCSVExportAPI(Resource):

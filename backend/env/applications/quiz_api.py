@@ -4,14 +4,13 @@ from flask_restful import Resource
 from flask import request, current_app
 from flask_caching import Cache
 from datetime import datetime
-
+from tasks.daily_reminder_task import daily_reminder_job
 from env.extensions import cache
 
 
 
 class QuizAPI(Resource):
 
-    # -------------------- GET QUIZZES --------------------
     @jwt_required()
     @cache.cached(
         timeout=300,
@@ -38,7 +37,6 @@ class QuizAPI(Resource):
 
         return {"quizzes": [q.to_json() for q in quizzes]}, 200
 
-    # -------------------- CREATE QUIZ (ADMIN ONLY) --------------------
     @jwt_required()
     def post(self):
         user_id = int(get_jwt_identity())
@@ -75,7 +73,7 @@ class QuizAPI(Resource):
 
         db.session.add(quiz)
         db.session.commit()
-
+        daily_reminder_job.delay()
         # 🔴 Clear cache after creation
         cache.clear()
 
@@ -85,7 +83,6 @@ class QuizAPI(Resource):
         }, 201
 
 
-    # -------------------- UPDATE QUIZ (ADMIN ONLY) --------------------
     @jwt_required()
     def patch(self, quiz_id):
         user_id = int(get_jwt_identity())
@@ -123,7 +120,6 @@ class QuizAPI(Resource):
         }, 200
 
 
-    # -------------------- DELETE QUIZ (ADMIN ONLY) --------------------
     @jwt_required()
     def delete(self, quiz_id):
         user_id = int(get_jwt_identity())
@@ -139,7 +135,6 @@ class QuizAPI(Resource):
         db.session.delete(quiz)
         db.session.commit()
 
-        # 🔴 Clear cache after deletion
         cache.clear()
 
         return {"message": "Quiz deleted successfully"}, 200

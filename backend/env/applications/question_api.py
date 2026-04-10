@@ -5,12 +5,8 @@ from flask import request, current_app
 from flask_caching import Cache
 from env.extensions import cache
 
-
-
-
 class QuestionAPI(Resource):
 
-    # -------------------- GET QUESTIONS (CACHED) --------------------
     @jwt_required()
     @cache.cached(
         timeout=300,
@@ -41,8 +37,6 @@ class QuestionAPI(Resource):
             "questions": [q.to_json() for q in questions]
         }, 200
 
-
-    # -------------------- CREATE QUESTION (ADMIN ONLY) --------------------
     @jwt_required()
     def post(self):
         user_id = int(get_jwt_identity())
@@ -84,7 +78,6 @@ class QuestionAPI(Resource):
         db.session.add(question)
         db.session.commit()
 
-        # 🔴 Clear cache after data modification
         cache.clear()
 
         return {
@@ -93,7 +86,6 @@ class QuestionAPI(Resource):
         }, 201
 
 
-    # -------------------- UPDATE QUESTION (ADMIN ONLY) --------------------
     @jwt_required()
     def patch(self, question_id):
         user_id = int(get_jwt_identity())
@@ -128,7 +120,6 @@ class QuestionAPI(Resource):
 
         db.session.commit()
 
-        # 🔴 Clear cache after update
         cache.clear()
 
         return {
@@ -136,8 +127,6 @@ class QuestionAPI(Resource):
             "question": question.to_json()
         }, 200
 
-
-    # -------------------- DELETE QUESTION (ADMIN ONLY) --------------------
     @jwt_required()
     def delete(self, question_id):
         user_id = int(get_jwt_identity())
@@ -153,7 +142,6 @@ class QuestionAPI(Resource):
         db.session.delete(question)
         db.session.commit()
 
-        # 🔴 Clear cache after deletion
         cache.clear()
 
         return {"message": "Question deleted successfully"}, 200

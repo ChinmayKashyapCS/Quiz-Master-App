@@ -31,7 +31,7 @@
             />
           </div>
 
-          <!-- Qualification (optional) -->
+          <!-- Qualification -->
           <div class="mb-3">
             <label class="form-label fw-semibold">Qualification</label>
             <input
@@ -42,17 +42,23 @@
             />
           </div>
 
-          <!-- Date of Birth (optional) -->
+          <!-- 🔥 UPDATED DOB FIELD (CALENDAR) -->
           <div class="mb-3">
             <label class="form-label fw-semibold">
-              Date of Birth (DD-MM-YYYY)
+              Date of Birth
             </label>
+
             <input
-              type="text"
+              type="date"
               class="form-control form-control-lg"
-              placeholder="DD-MM-YYYY"
-              v-model="dob"
+              v-model="dob_raw"
+              :max="maxDate"
             />
+
+            <!-- 🔥 EXTRA DISPLAY FORMAT -->
+            <small class="text-muted">
+              Selected: {{ formattedDOB || "Not selected" }}
+            </small>
           </div>
 
           <!-- Password -->
@@ -79,12 +85,12 @@
             />
           </div>
 
-          <!-- Error Message -->
+          <!-- Error -->
           <div v-if="error" class="alert alert-danger text-center">
             {{ error }}
           </div>
 
-          <!-- Success Message -->
+          <!-- Success -->
           <div v-if="success" class="alert alert-success text-center">
             {{ success }}
           </div>
@@ -96,7 +102,7 @@
             </button>
           </div>
 
-          <!-- Login Redirect -->
+          <!-- Login -->
           <div class="text-center">
             <span class="text-muted">Already have an account?</span>
             <router-link
@@ -106,6 +112,7 @@
               Login
             </router-link>
           </div>
+
         </form>
       </div>
     </div>
@@ -121,16 +128,56 @@ export default {
       full_name: "",
       email: "",
       qualification: "",
-      dob: "",
+
+      /* 🔥 NEW DOB STATES */
+      dob_raw: "",      // yyyy-mm-dd from input
+      dob: "",          // formatted DD-MM-YYYY
+
       password: "",
       confirm_password: "",
       error: null,
       success: null,
+
+      /* 🔥 EXTRA STATE */
+      debugMode: false
     }
   },
 
+  computed: {
+
+    /* 🔥 MAX DATE (NO FUTURE DOB) */
+    maxDate(){
+      return new Date().toISOString().split("T")[0]
+    },
+
+    /* 🔥 FORMATTED DOB */
+    formattedDOB(){
+      if(!this.dob_raw) return ""
+
+      const [year, month, day] = this.dob_raw.split("-")
+
+      return `${day}-${month}-${year}`
+    }
+
+  },
+
   methods: {
+
+    /* 🔥 CONVERT DATE BEFORE SEND */
+    prepareDOB(){
+
+      if(!this.dob_raw){
+        this.dob = null
+        return
+      }
+
+      const [year, month, day] = this.dob_raw.split("-")
+
+      this.dob = `${day}-${month}-${year}`
+    },
+
     async register() {
+
       this.error = null
       this.success = null
 
@@ -138,6 +185,9 @@ export default {
         this.error = "Passwords do not match"
         return
       }
+
+      /* 🔥 PREPARE DOB */
+      this.prepareDOB()
 
       try {
         const response = await fetch("/api/register", {
@@ -171,7 +221,23 @@ export default {
         this.error = "Server unavailable. Please try again later."
       }
     },
+
+    /* 🔥 DEBUG FUNCTION */
+    logDOB(){
+      if(this.debugMode){
+        console.log("Raw:", this.dob_raw)
+        console.log("Formatted:", this.dob)
+      }
+    }
+
   },
+
+  watch:{
+    dob_raw(){
+      this.logDOB()
+    }
+  }
+
 }
 </script>
 
@@ -191,4 +257,10 @@ input:focus {
   box-shadow: none;
   border-color: #198754;
 }
+
+/* 🔥 EXTRA STYLE */
+small{
+  font-size: 0.75rem;
+}
+
 </style>

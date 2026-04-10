@@ -1,44 +1,75 @@
-from celery import shared_task
+from celery_config import celery
 from env.applications.models import db, User, Quiz, Score
-from datetime import datetime, timedelta
+from datetime import datetime
+from flask import Flask
+import os
 
-@shared_task(bind=True)
-def daily_reminder_job(self):
-    # LOCAL IMPORT: This prevents the circular import error
-    from app import app 
+from env.utils.email_service import send_email
+
+REMINDER_DIR = "reports/daily_reminders"
+os.makedirs(REMINDER_DIR, exist_ok=True)
+
+
+def create_local_app():
+    app = Flask(__name__)
+    app.config.update(
+        SQLALCHEMY_DATABASE_URI="sqlite:///database.db",
+        SQLALCHEMY_TRACK_MODIFICATIONS=False
+    )
+    db.init_app(app)
+    return app
+
+
+@celery.task(name="tasks.daily_reminder_task.daily_reminder_job")
+def daily_reminder_job():
+
+    app = create_local_app()
 
     with app.app_context():
-        today = datetime.utcnow()
-        seven_days_ago = today - timedelta(days=7)
 
-        # Logic remains exactly the same
+        print("[DAILY REMINDER STARTED]")
+
         users = User.query.filter_by(role="user").all()
+        quizzes = Quiz.query.all()
 
-        reminders_sent = []
+        today = datetime.utcnow()
 
         for user in users:
+
             scores = Score.query.filter_by(user_id=user.id).all()
+            attempted_ids = [s.quiz_id for s in scores]
 
-            if not scores:
-                reminders_sent.append(user.email)
-                print(f"[REMINDER] {user.email} → No attempts yet!")
-                continue
+            unattempted = [q for q in quizzes if q.id not in attempted_ids]
 
-            last_attempt = max(s.attempted_at for s in scores)
-            if last_attempt < seven_days_ago:
-                reminders_sent.append(user.email)
-                print(f"[REMINDER] {user.email} → Inactive for 7 days!")
+            filename = f"user_{user.id}_{int(today.timestamp())}.txt"
+            filepath = os.path.join(REMINDER_DIR, filename)
 
-        new_quizzes = Quiz.query.filter(
-            Quiz.created_at >= today.replace(hour=0, minute=0, second=0)
-        ).all()
+            with open(filepath, "w") as f:
 
-        if new_quizzes:
-            for user in users:
-                print(f"[REMINDER] {user.email} → New quizzes available!")
+                f.write(f"User: {user.full_name}\n")
+                f.write(f"Date: {today}\n\n")
 
-        return {
-            "status": "completed",
-            "users_notified": reminders_sent,
-            "new_quizzes": len(new_quizzes)
-        }
+                if not unattempted:
+                    f.write("All quizzes attempted\n")
+                else:
+                    f.write("Unattempted Quizzes:\n")
+
+                    for q in unattempted:
+                        f.write(f"- Quiz ID: {q.id}\n")
+
+            print(f"[REMINDER FILE CREATED] → {filepath}")
+
+            # 🔥 EMAIL ADDED
+            try:
+                send_email(
+                    user.email,
+                    "Daily Reminder ",
+                    f"Hello {user.full_name},\n\n"
+                    f"You have {len(unattempted)} unattempted quizzes.\n"
+                    f"Please check the attached report or login to attempt them."
+                )
+                print(f"[EMAIL SENT] → {user.email}")
+            except Exception as e:
+                print(f"[EMAIL ERROR] → {user.email} → {e}")
+
+        return {"status": "done"}

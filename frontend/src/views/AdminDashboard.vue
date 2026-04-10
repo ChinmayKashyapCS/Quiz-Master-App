@@ -44,6 +44,7 @@
         </div>
       </div>
 
+      <!-- QUIZ LIST -->
       <div class="card shadow-sm mb-5 border-0">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
           <h5 class="mb-0 fw-bold"><i class="bi bi-list-ul me-2"></i>List of Quizzes</h5>
@@ -51,35 +52,47 @@
             <input v-model="quizSearch" class="form-control form-control-sm w-50" placeholder="Search quizzes by ID...">
           </div>
         </div>
+
         <div class="table-responsive">
           <table class="table table-hover align-middle mb-0 text-center">
             <thead class="table-light">
               <tr>
-                <th>Quiz ID</th><th>Chapter ID</th><th>Duration</th><th>Actions</th>
+                <th>Quiz ID</th>
+                <th>Chapter ID</th>
+                <th>Duration</th>
+                <th>Average %</th>
+                <th>Actions</th>
               </tr>
             </thead>
+
             <tbody>
               <tr v-for="quiz in filteredQuizzes" :key="quiz.id">
                 <td>#{{ quiz.id }}</td>
                 <td>{{ quiz.chapter_id }}</td>
-                <td>{{ quiz.duration }} mins</td>
+                <td>{{ quiz.time_duration }} mins</td>
+                <td>{{ getQuizStats(quiz.id).avg }}%</td>
                 <td>
-                  <button class="btn btn-sm btn-outline-primary" @click="viewQuizSummary(quiz)">Summary</button>
+                  <button class="btn btn-sm btn-outline-primary" @click="viewQuizSummary(quiz)">
+                    Summary
+                  </button>
                 </td>
               </tr>
+
               <tr v-if="filteredQuizzes.length === 0">
-                <td colspan="4" class="text-muted py-3">No quizzes found.</td>
+                <td colspan="5" class="text-muted py-3">No quizzes found.</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
+      <!-- REGISTERED USERS -->
       <div class="card shadow-sm mb-5 border-0">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
           <h5 class="mb-0 fw-bold"><i class="bi bi-people me-2"></i>Registered Users</h5>
           <input v-model="userSearch" class="form-control form-control-sm w-25" placeholder="Search users...">
         </div>
+
         <div class="table-responsive">
           <table class="table table-hover align-middle mb-0 text-center">
             <thead class="table-light">
@@ -87,6 +100,7 @@
                 <th>ID</th><th>Name</th><th>Email</th><th>DoB</th><th>Qualification</th><th>Action</th>
               </tr>
             </thead>
+
             <tbody>
               <tr v-for="user in filteredUsers" :key="user.id">
                 <td>{{ user.id }}</td>
@@ -95,9 +109,12 @@
                 <td>{{ user.dob || 'N/A' }}</td>
                 <td>{{ user.qualification || 'N/A' }}</td>
                 <td>
-                  <button class="btn btn-sm btn-info text-white px-3" @click="viewUserQuizzes(user)">View</button>
+                  <button class="btn btn-sm btn-info text-white px-3" @click="viewUserQuizzes(user)">
+                    View
+                  </button>
                 </td>
               </tr>
+
               <tr v-if="filteredUsers.length === 0">
                 <td colspan="6" class="text-muted py-3">No users found.</td>
               </tr>
@@ -106,184 +123,319 @@
         </div>
       </div>
 
+      <!-- QUIZ ATTEMPTS -->
       <div class="card shadow-sm border-0">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-          <h5 class="mb-0 fw-bold"><i class="bi bi-clipboard-check me-2"></i>Quiz Attempts</h5>
-          <input v-model="attemptSearch" class="form-control form-control-sm w-25" placeholder="Search attempts...">
+          <h5 class="mb-0 fw-bold">
+            <i class="bi bi-clipboard-check me-2"></i>Quiz Attempts
+          </h5>
+          <input
+            v-model="attemptSearch"
+            class="form-control form-control-sm w-25"
+            placeholder="Search attempts..."
+          >
         </div>
+
         <div class="table-responsive">
           <table class="table table-hover align-middle mb-0 text-center">
             <thead class="table-light">
               <tr>
-                <th>Quiz ID</th><th>User ID</th><th>Chapter ID</th><th>Action</th>
+                <th>Quiz ID</th>
+                <th>User ID</th>
+                <th>User Name</th>
+                <th>Chapter ID</th>
+                <th>Action</th>
               </tr>
             </thead>
+
             <tbody>
               <tr v-for="attempt in filteredAttempts" :key="attempt.id">
                 <td>#{{ attempt.quiz_id }}</td>
                 <td>{{ attempt.user_id }}</td>
+                <td>{{ getUserName(attempt.user_id) }}</td>
                 <td>{{ attempt.chapter_id || 'N/A' }}</td>
+
                 <td>
-                  <button class="btn btn-sm btn-outline-secondary" @click="viewAttemptOverview(attempt)">Overview</button>
+                  <button
+                    class="btn btn-sm btn-outline-secondary"
+                    @click="viewAttemptOverview({ ...attempt })"
+                  >
+                    Overview
+                  </button>
+                  <div v-if="selectedAttemptOverview" class="custom-modal-overlay">
+                      <div class="custom-modal-content shadow-lg">
+                        <h4 class="border-bottom pb-2 mb-3">Attempt Overview</h4>
+
+                        <div class="mb-3">
+                          <p>
+                            <strong>Quiz ID:</strong>
+                            #{{ selectedAttemptOverview.quiz_id }}
+                          </p>
+
+                          <p>
+                            <strong>User ID:</strong>
+                            {{ selectedAttemptOverview.user_id }}
+                          </p>
+
+                          <p>
+                            <strong>User Name:</strong>
+                            {{ getUserName(selectedAttemptOverview.user_id) }}
+                          </p>
+
+                          <p>
+                            <strong>Score:</strong>
+                            {{ selectedAttemptOverview.score }}/{{ getTotalQuestions(selectedAttemptOverview.quiz_id) }}
+                            ({{ getScorePercent(selectedAttemptOverview) }}%)
+                          </p>
+                        </div>
+
+                        <button class="btn btn-dark w-100" @click="selectedAttemptOverview = null">
+                          Close
+                        </button>
+                      </div>
+                    </div>
                 </td>
               </tr>
+
               <tr v-if="filteredAttempts.length === 0">
-                <td colspan="4" class="text-muted py-3">No attempts found.</td>
+                <td colspan="5" class="text-muted py-3">
+                  No attempts found.
+                </td>
               </tr>
             </tbody>
+
           </table>
         </div>
       </div>
     </div>
 
-    <div v-if="selectedQuizSummary" class="custom-modal-overlay">
-      <div class="custom-modal-content shadow-lg">
-        <h4 class="border-bottom pb-2 mb-3">Quiz #{{ selectedQuizSummary.id }} Summary</h4>
-        <div class="mb-3">
-          <h6>Performance Stats:</h6>
-          <p><strong>Total Attempts:</strong> {{ getQuizStats(selectedQuizSummary.id).count }}</p>
-          <p><strong>Average Score:</strong> {{ getQuizStats(selectedQuizSummary.id).avg }}%</p>
-          <hr>
-          <h6>Remarks:</h6>
-          <ul class="list-group list-group-flush">
-            <li v-for="(rem, idx) in getQuizStats(selectedQuizSummary.id).remarks" :key="idx" class="list-group-item small">
-              {{ rem }}
-            </li>
-            <li v-if="getQuizStats(selectedQuizSummary.id).remarks.length === 0" class="list-group-item text-muted">No remarks available</li>
-          </ul>
-        </div>
-        <button class="btn btn-dark w-100" @click="selectedQuizSummary = null">Close and Return</button>
-      </div>
-    </div>
-
+    <!-- USER QUIZ LIST -->
     <div v-if="selectedUserProfile" class="custom-modal-overlay">
       <div class="custom-modal-content shadow-lg">
-        <h4 class="border-bottom pb-2 mb-3">Quizzes Attended by {{ selectedUserProfile.username }}</h4>
-        <div class="table-responsive" style="max-height: 300px;">
+        <h4 class="border-bottom pb-2 mb-3">
+          Quizzes Attended by {{ selectedUserProfile.full_name }}
+        </h4>
+
+        <div class="table-responsive" style="max-height:300px;">
           <table class="table table-sm">
             <thead>
-              <tr><th>Quiz ID</th><th>Score</th></tr>
+              <tr>
+                <th>Quiz ID</th>
+                <th>Score</th>
+                <th>Percentage</th>
+              </tr>
             </thead>
+
             <tbody>
               <tr v-for="att in getUserAttempts(selectedUserProfile.id)" :key="att.id">
                 <td>#{{ att.quiz_id }}</td>
-                <td><span class="badge bg-success">{{ att.score }}%</span></td>
+                <td>{{ att.score }}/{{ getTotalQuestions(att.quiz_id) }}</td>
+                <td>{{ getScorePercent(att) }}%</td>
               </tr>
+
               <tr v-if="getUserAttempts(selectedUserProfile.id).length === 0">
-                <td colspan="2" class="text-center text-muted">No quizzes attended.</td>
+                <td colspan="3" class="text-center text-muted">
+                  No quizzes attended.
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <button class="btn btn-dark w-100 mt-3" @click="selectedUserProfile = null">Close</button>
+
+        <button class="btn btn-dark w-100 mt-3" @click="selectedUserProfile = null">
+          Close
+        </button>
       </div>
     </div>
 
-    <div v-if="selectedAttemptOverview" class="custom-modal-overlay">
-      <div class="custom-modal-content shadow-lg">
-        <h4 class="border-bottom pb-2 mb-3">Attempt Overview</h4>
-        <div class="mb-3">
-          <p><strong>Quiz ID:</strong> #{{ selectedAttemptOverview.quiz_id }}</p>
-          <p><strong>User ID:</strong> {{ selectedAttemptOverview.user_id }}</p>
-          <p><strong>Score:</strong> <span class="badge bg-primary">{{ selectedAttemptOverview.score }}%</span></p>
-          <p><strong>Remark:</strong> {{ selectedAttemptOverview.remark || 'No remark provided' }}</p>
-        </div>
-        <button class="btn btn-dark w-100" @click="selectedAttemptOverview = null">Close</button>
+    <!-- ATTEMPT OVERVIEW -->
+    <div v-if="selectedQuizSummary" class="custom-modal-overlay">
+    <div class="custom-modal-content shadow-lg">
+      <h4 class="border-bottom pb-2 mb-3">
+        Quiz #{{ selectedQuizSummary.id }} Summary
+      </h4>
+
+      <div class="mb-3">
+        <h6>Performance Stats:</h6>
+
+        <p>
+          <strong>Total Attempts:</strong>
+          {{ getQuizStats(selectedQuizSummary.id).count }}
+        </p>
+
+        <p>
+          <strong>Average Percentage:</strong>
+          {{ getQuizStats(selectedQuizSummary.id).avg }}%
+        </p>
+
+        <hr>
+
+        <h6>Attempts</h6>
+
+        <ul class="list-group list-group-flush">
+          <li
+            v-for="att in attempts.filter(a => a.quiz_id === selectedQuizSummary.id)"
+            :key="att.id"
+            class="list-group-item small"
+          >
+            User: {{ getUserName(att.user_id) }}
+            —
+            Score:
+            {{ att.score }}/{{ getTotalQuestions(att.quiz_id) }}
+            ({{ getScorePercent(att) }}%)
+          </li>
+
+          <li
+            v-if="attempts.filter(a => a.quiz_id === selectedQuizSummary.id).length === 0"
+            class="list-group-item text-muted"
+          >
+            No attempts available
+          </li>
+        </ul>
       </div>
+
+      <button
+        class="btn btn-dark w-100"
+        @click="selectedQuizSummary = null"
+      >
+        Close and Return
+      </button>
     </div>
+</div>
+
   </div>
 </template>
 
 <script>
 export default {
   name: "AdminDashboard",
-  data() {
-    return {
+
+  data(){
+    return{
       adminName: localStorage.getItem("username") || "Admin",
-      quizzes: [],
-      users: [],
-      attempts: [],
-      quizSearch: "",
-      userSearch: "",
-      attemptSearch: "",
-      selectedQuizSummary: null,
-      selectedUserProfile: null,
-      selectedAttemptOverview: null,
-      baseURL: "http://localhost:5000/api"
+      quizzes:[],
+      users:[],
+      attempts:[],
+      questions:{},
+      quizSearch:"",
+      userSearch:"",
+      attemptSearch:"",
+      selectedQuizSummary:null,
+      selectedUserProfile:null,
+      selectedAttemptOverview:null,
+      baseURL:"http://localhost:5000/api"
     }
   },
-  computed: {
-    filteredQuizzes() {
-      if (!Array.isArray(this.quizzes)) return [];
-      return this.quizzes.filter(q => q.id?.toString().includes(this.quizSearch));
+
+  computed:{
+    filteredQuizzes(){
+      if(!Array.isArray(this.quizzes)) return [];
+      return this.quizzes.filter(q => q.id?.toString().includes(this.quizSearch))
     },
-    filteredUsers() {
-      if (!Array.isArray(this.users)) return [];
-      return this.users.filter(u => 
-        (u.full_name || u.username || "").toLowerCase().includes(this.userSearch.toLowerCase())
-      );
+
+    filteredUsers(){
+      if(!Array.isArray(this.users)) return [];
+      return this.users.filter(u =>
+        (u.full_name || "").toLowerCase().includes(this.userSearch.toLowerCase())
+      )
     },
-    filteredAttempts() {
-      if (!Array.isArray(this.attempts)) return [];
-      return this.attempts.filter(a => a.quiz_id?.toString().includes(this.attemptSearch));
+
+    filteredAttempts(){
+      if(!Array.isArray(this.attempts)) return [];
+      return this.attempts.filter(a =>
+        a.quiz_id?.toString().includes(this.attemptSearch)
+      )
     }
   },
-  async mounted() {
-    const token = localStorage.getItem("access_token");
-    if (!token) return this.$router.push("/login");
 
-    const headers = { 
-      "Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json"
-    };
+  async mounted(){
 
-    try {
-      const [qRes, uRes, aRes] = await Promise.all([
-        fetch(`${this.baseURL}/quizzes`, { headers }), 
-        fetch(`${this.baseURL}/admin/users`, { headers }), 
-        fetch(`${this.baseURL}/scores`, { headers })
-      ]);
+    const token = localStorage.getItem("access_token")
+    if(!token) return this.$router.push("/login")
 
-      if (qRes.ok) {
-          const data = await qRes.json();
-          this.quizzes = Array.isArray(data) ? data : (data.quizzes || []);
-      }
-      if (uRes.ok) {
-          const data = await uRes.json();
-          this.users = Array.isArray(data) ? data : (data.users || []);
-      }
-      if (aRes.ok) {
-          const data = await aRes.json();
-          this.attempts = Array.isArray(data) ? data : (data.scores || data.attempts || []);
-      }
-    } catch (err) {
-      console.error("Fetch Error:", err);
+    const headers={
+      "Authorization":`Bearer ${token}`,
+      "Content-Type":"application/json"
     }
+
+    try{
+
+      const [qRes,uRes,aRes]=await Promise.all([
+        fetch(`${this.baseURL}/quizzes`,{headers}),
+        fetch(`${this.baseURL}/admin/users`,{headers}),
+        fetch(`${this.baseURL}/scores`,{headers})
+      ])
+
+      if(qRes.ok){
+        const data=await qRes.json()
+        this.quizzes = data.quizzes || []
+      }
+
+      if(uRes.ok){
+        const data=await uRes.json()
+        this.users = data
+      }
+
+      if(aRes.ok){
+        const data=await aRes.json()
+        this.attempts = data.scores || []
+      }
+
+    }catch(err){
+      console.error("Fetch Error:",err)
+    }
+
   },
-  methods: {
-    viewQuizSummary(quiz) { this.selectedQuizSummary = quiz; },
-    viewUserQuizzes(user) { this.selectedUserProfile = user; },
-    viewAttemptOverview(attempt) { this.selectedAttemptOverview = attempt; },
-    
-    // Helper to calculate stats for a specific quiz locally from attempts data
-    getQuizStats(quizId) {
-      const quizAttempts = this.attempts.filter(a => a.quiz_id === quizId);
-      const count = quizAttempts.length;
-      const avg = count > 0 ? (quizAttempts.reduce((acc, curr) => acc + curr.score, 0) / count).toFixed(1) : 0;
-      const remarks = quizAttempts.map(a => a.remark).filter(r => r);
-      return { count, avg, remarks };
+
+  methods:{
+
+    viewQuizSummary(q){ this.selectedQuizSummary=q },
+
+    viewUserQuizzes(user){ this.selectedUserProfile=user },
+
+    viewAttemptOverview(a){ this.selectedAttemptOverview=a },
+
+    getUserName(uid){
+      const u=this.users.find(x=>x.id===uid)
+      return u ? u.full_name : "Unknown"
     },
 
-    // Helper to get attempts for a specific user
-    getUserAttempts(userId) {
-      return this.attempts.filter(a => a.user_id === userId);
+    getUserAttempts(uid){
+      return this.attempts.filter(a=>a.user_id===uid)
     },
 
-    logout() {
-      localStorage.clear();
-      // Navigates to index (root) page
-      this.$router.push("/");
+    getTotalQuestions(qid){
+      const q=this.quizzes.find(x=>x.id===qid)
+      return q?.questions?.length || 0
+    },
+
+    getScorePercent(att){
+      const total=this.getTotalQuestions(att.quiz_id)
+      if(!total) return 0
+      return ((att.score/total)*100).toFixed(1)
+    },
+
+    getQuizStats(quizId){
+
+      const quizAttempts=this.attempts.filter(a=>a.quiz_id===quizId)
+
+      const percentages = quizAttempts.map(a => {
+        const total=this.getTotalQuestions(a.quiz_id)
+        return total ? (a.score/total)*100 : 0
+      })
+
+      const avg = percentages.length
+        ? (percentages.reduce((a,b)=>a+b,0)/percentages.length).toFixed(1)
+        : 0
+
+      return {count:quizAttempts.length,avg,remarks:[]}
+    },
+
+    logout(){
+      localStorage.clear()
+      this.$router.push("/")
     }
+
   }
 }
 </script>

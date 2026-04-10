@@ -2,125 +2,156 @@ from celery import shared_task
 from env.applications.models import db, User, Quiz, Score
 from datetime import datetime, timedelta
 import os
+from flask import Flask
+
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table
+from reportlab.lib.styles import getSampleStyleSheet
+import matplotlib.pyplot as plt
+
+from env.utils.email_service import send_email_with_pdf
+
 
 REPORT_DIR = "reports"
+GRAPH_DIR = "reports/graphs"
+
 os.makedirs(REPORT_DIR, exist_ok=True)
+os.makedirs(GRAPH_DIR, exist_ok=True)
 
 
-@shared_task(bind=True)
-def monthly_activity_report(self):
-    """
-    Generates monthly activity report for each user (HTML).
-    Runs on 1st of every month.
-    """
+from celery_config import celery
 
-    today = datetime.utcnow()
-    first_day_last_month = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
-    last_day_last_month = today.replace(day=1) - timedelta(days=1)
+@celery.task(name="tasks.monthly_report_task.monthly_activity_report")
+def monthly_activity_report():
 
-    users = User.query.filter_by(role="user").all()
-    reports_generated = []
+    app = create_local_app()   
 
-    for user in users:
-        scores = (
-            Score.query
-            .filter(
-                Score.user_id == user.id,
-                Score.attempted_at >= first_day_last_month,
-                Score.attempted_at <= last_day_last_month
+    with app.app_context():    
+
+        print("[MONTHLY REPORT STARTED]")
+
+        today = datetime.utcnow()
+
+        first_day_last_month = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+        last_day_last_month = today.replace(day=1) - timedelta(days=1)
+
+        users = User.query.filter_by(role="user").all()
+        reports_generated = []
+
+        for user in users:
+
+            scores = (
+                Score.query
+                .filter(
+                    Score.user_id == user.id,
+                    Score.attempted_at >= first_day_last_month,
+                    Score.attempted_at <= last_day_last_month
+                )
+                .all()
             )
-            .all()
-        )
 
-        quizzes_taken = len(scores)
-        total_score = sum(s.score for s in scores)
-        avg_score = round(total_score / quizzes_taken, 2) if quizzes_taken else 0
+            quizzes_taken = len(scores)
+            total_score = sum(s.score for s in scores)
+            avg_score = round(total_score / quizzes_taken, 2) if quizzes_taken else 0
 
-        # Basic ranking logic
-        all_scores = Score.query.filter(
-            Score.attempted_at >= first_day_last_month,
-            Score.attempted_at <= last_day_last_month
-        ).all()
 
-        user_totals = {}
-        for s in all_scores:
-            user_totals.setdefault(s.user_id, 0)
-            user_totals[s.user_id] += s.score
+            quiz_ids = [s.quiz_id for s in scores]
+            score_values = [s.score for s in scores]
 
-        sorted_users = sorted(
-            user_totals.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
+            graph_path = os.path.join(GRAPH_DIR, f"user_{user.id}_graph.png")
 
-        rank = next(
-            (idx + 1 for idx, (uid, _) in enumerate(sorted_users) if uid == user.id),
-            None
-        )
+            if score_values:
+                plt.figure()
+                plt.plot(quiz_ids, score_values, marker='o')
+                plt.title("Quiz Performance")
+                plt.xlabel("Quiz ID")
+                plt.ylabel("Score")
+                plt.grid()
 
-        # ---------------- HTML REPORT ----------------
-        html_content = f"""
-        <html>
-        <head>
-            <title>Monthly Activity Report</title>
-            <style>
-                body {{ font-family: Arial; }}
-                table {{ border-collapse: collapse; width: 100%; }}
-                th, td {{ border: 1px solid #333; padding: 8px; text-align: center; }}
-                th {{ background-color: #f2f2f2; }}
-            </style>
-        </head>
-        <body>
-            <h2>Monthly Activity Report</h2>
-            <p><strong>Name:</strong> {user.full_name}</p>
-            <p><strong>Email:</strong> {user.email}</p>
-            <p><strong>Month:</strong> {first_day_last_month.strftime('%B %Y')}</p>
+                plt.savefig(graph_path)
+                plt.close()
+            else:
+                graph_path = None
 
-            <h3>Summary</h3>
-            <ul>
-                <li>Quizzes Taken: {quizzes_taken}</li>
-                <li>Total Score: {total_score}</li>
-                <li>Average Score: {avg_score}</li>
-                <li>Rank: {rank if rank else 'N/A'}</li>
-            </ul>
+            pdf_filename = f"user_{user.id}_monthly_report.pdf"
+            pdf_path = os.path.join(REPORT_DIR, pdf_filename)
 
-            <h3>Quiz Details</h3>
-            <table>
-                <tr>
-                    <th>Quiz ID</th>
-                    <th>Score</th>
-                    <th>Date</th>
-                </tr>
-        """
+            doc = SimpleDocTemplate(pdf_path)
+            styles = getSampleStyleSheet()
 
-        for s in scores:
-            html_content += f"""
-                <tr>
-                    <td>{s.quiz_id}</td>
-                    <td>{s.score}</td>
-                    <td>{s.attempted_at.strftime('%Y-%m-%d')}</td>
-                </tr>
-            """
+            elements = []
 
-        html_content += """
-            </table>
-        </body>
-        </html>
-        """
+            
+            elements.append(Paragraph("Quiz Master Monthly Report", styles['Title']))
+            elements.append(Spacer(1, 10))
 
-        filename = f"user_{user.id}_monthly_report.html"
-        filepath = os.path.join(REPORT_DIR, filename)
+            
+            elements.append(Paragraph(f"Name: {user.full_name}", styles['Normal']))
+            elements.append(Paragraph(f"Email: {user.email}", styles['Normal']))
+            elements.append(Paragraph(f"Month: {first_day_last_month.strftime('%B %Y')}", styles['Normal']))
+            elements.append(Spacer(1, 10))
 
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(html_content)
+           
+            elements.append(Paragraph("Summary:", styles['Heading2']))
+            elements.append(Paragraph(f"Quizzes Taken: {quizzes_taken}", styles['Normal']))
+            elements.append(Paragraph(f"Total Score: {total_score}", styles['Normal']))
+            elements.append(Paragraph(f"Average Score: {avg_score}", styles['Normal']))
+            elements.append(Spacer(1, 10))
 
-        # Simulated email send (acceptable for demo)
-        print(f"[MONTHLY REPORT] Sent report to {user.email} → {filepath}")
+           
+            table_data = [["Quiz ID", "Score", "Date"]]
 
-        reports_generated.append(user.email)
+            for s in scores:
+                table_data.append([
+                    str(s.quiz_id),
+                    str(s.score),
+                    s.attempted_at.strftime("%Y-%m-%d")
+                ])
 
-    return {
-        "status": "completed",
-        "reports_generated": reports_generated,
-        "month": first_day_last_month.strftime("%B %Y")
-    }
+            table = Table(table_data)
+            elements.append(table)
+            elements.append(Spacer(1, 20))
+
+            # Add Graph Image (if exists)
+            if graph_path and os.path.exists(graph_path):
+                from reportlab.platypus import Image
+                elements.append(Paragraph("Performance Graph:", styles['Heading2']))
+                elements.append(Image(graph_path, width=400, height=200))
+
+           
+            doc.build(elements)
+
+           
+            print(f"[PDF GENERATED] → {pdf_path}")
+
+            
+            try:
+                send_email_with_pdf(
+                    user.email,
+                    "Monthly Quiz Report ",
+                    f"Hello {user.full_name},\n\n"
+                    f"Your monthly performance report is attached.\n\n"
+                    f"Keep improving!",
+                    pdf_path
+                )
+                print(f"[PDF EMAIL SENT] → {user.email}")
+
+            except Exception as e:
+                print(f"[EMAIL ERROR] → {user.email} → {e}")
+
+            reports_generated.append(user.email)
+
+        return {
+            "status": "completed",
+            "reports_generated": reports_generated,
+            "month": first_day_last_month.strftime("%B %Y")
+        }
+def create_local_app():
+    app = Flask(__name__)
+
+    app.config.update(
+        SQLALCHEMY_DATABASE_URI="sqlite:///database.db",
+        SQLALCHEMY_TRACK_MODIFICATIONS=False
+    )
+
+    db.init_app(app)
+    return app

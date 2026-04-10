@@ -3,8 +3,6 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
-
-# -------------------- USER --------------------
 class User(db.Model):
     __tablename__ = "users"
 
@@ -39,8 +37,6 @@ class User(db.Model):
     def __repr__(self):
         return f"<User {self.email}>"
 
-
-# -------------------- SUBJECT --------------------
 class Subject(db.Model):
     __tablename__ = "subjects"
 
@@ -65,8 +61,6 @@ class Subject(db.Model):
     def __repr__(self):
         return f"<Subject {self.name}>"
 
-
-# -------------------- CHAPTER --------------------
 class Chapter(db.Model):
     __tablename__ = "chapters"
 
@@ -92,7 +86,6 @@ class Chapter(db.Model):
         return f"<Chapter {self.name}>"
 
 
-# -------------------- QUIZ --------------------
 class Quiz(db.Model):
     __tablename__ = "quizzes"
 
@@ -121,8 +114,6 @@ class Quiz(db.Model):
     def __repr__(self):
         return f"<Quiz {self.id}>"
 
-
-# -------------------- QUESTION --------------------
 class Question(db.Model):
     __tablename__ = "questions"
 
@@ -148,14 +139,14 @@ class Question(db.Model):
                 "2": self.option2,
                 "3": self.option3,
                 "4": self.option4
-            }
+            },
+            "correct_option": self.correct_option
         }
 
     def __repr__(self):
         return f"<Question {self.id}>"
 
 
-# -------------------- SCORE --------------------
 class Score(db.Model):
     __tablename__ = "scores"
 

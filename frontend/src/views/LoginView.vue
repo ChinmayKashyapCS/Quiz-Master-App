@@ -78,7 +78,7 @@ export default {
       this.loading = true;
 
       try {
-        // Changed to localhost to avoid some 127.0.0.1 browser restrictions
+
         const response = await fetch("http://localhost:5000/api/login", {
           method: "POST",
           headers: { 
@@ -98,22 +98,34 @@ export default {
 
         const data = await response.json();
 
-        // 1. Save Token
+        /* ===============================
+           SAVE AUTH DATA
+        =============================== */
+
+        // Save Token
         localStorage.setItem("access_token", data.access_token);
 
-        // 2. Decode JWT
-        const decoded = jwtDecode(data.access_token);
-        
-        // Match the role structure from your Backend (sub is common in Flask-JWT-Extended)
-        const role = decoded.role || (decoded.sub && decoded.sub.role) || decoded.sub;
+        // 🔹 IMPORTANT: Save user details for dashboard/profile modal
+        localStorage.setItem("user", JSON.stringify(data.user));
 
-        // 3. Save Role & Username (useful for the dashboard display)
+        // Decode JWT
+        const decoded = jwtDecode(data.access_token);
+
+        const role =
+          decoded.role ||
+          (decoded.sub && decoded.sub.role) ||
+          decoded.sub;
+
         localStorage.setItem("role", role);
+
         if (decoded.sub && decoded.sub.username) {
-            localStorage.setItem("username", decoded.sub.username);
+          localStorage.setItem("username", decoded.sub.username);
         }
 
-        // 4. Role-Based Redirect
+        /* ===============================
+           REDIRECT BASED ON ROLE
+        =============================== */
+
         if (role === "admin") {
           this.$router.push("/admin/dashboard");
         } else {
@@ -121,11 +133,14 @@ export default {
         }
 
       } catch (err) {
+
         console.error("Fetch encountered an error:", err);
-        // Better error message for "Failed to Fetch" (Network error)
-        this.error = err.message === 'Failed to fetch' 
-            ? "Cannot connect to server. Ensure Flask is running on port 5000." 
+
+        this.error =
+          err.message === "Failed to fetch"
+            ? "Cannot connect to server. Ensure Flask is running on port 5000."
             : err.message;
+
       } finally {
         this.loading = false;
       }
@@ -135,18 +150,21 @@ export default {
 </script>
 
 <style scoped>
-/* Styles remain exactly as you provided */
+
 .login-page {
   min-height: 100vh;
   background: linear-gradient(135deg, #eef2ff, #f8fafc);
 }
+
 .login-card {
   width: 100%;
   max-width: 420px;
   border-radius: 1rem;
 }
+
 input:focus {
   box-shadow: none;
   border-color: #4f46e5;
 }
+
 </style>

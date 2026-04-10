@@ -11,7 +11,6 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
-# -------------------- LOGIN --------------------
 class LoginAPI(Resource):
     def post(self):
         data = request.get_json() or {}
@@ -39,8 +38,6 @@ class LoginAPI(Resource):
             "user": user.to_json()
         }, 200
 
-
-# -------------------- REGISTER (USER ONLY) --------------------
 class RegisterAPI(Resource):
     def post(self):
         data = request.get_json() or {}
@@ -88,8 +85,6 @@ class RegisterAPI(Resource):
             "user": user.to_json()
         }, 201
 
-
-# -------------------- EDIT PROFILE --------------------
 class EditAPI(Resource):
     @jwt_required()
     def patch(self):
@@ -128,8 +123,6 @@ class EditAPI(Resource):
         }, 200
 
 
-# -------------------- ADMIN: VIEW ALL USERS --------------------
-# -------------------- ADMIN: VIEW ALL USERS --------------------
 class AdminUsersAPI(Resource):
     @jwt_required()
     def get(self):
@@ -139,8 +132,8 @@ class AdminUsersAPI(Resource):
         if role != "admin":
             return {"message": "Admin access required"}, 403
 
-        # Filter to only show users with role "user" if you want to hide admins from the list
+
         users = User.query.filter_by(role="user").all()
         
-        # We return the list directly to match your frontend's await res.json() logic
+
         return [u.to_json() for u in users], 200

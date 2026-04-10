@@ -5,13 +5,11 @@ from flask_restful import Resource
 
 class ScoreAPI(Resource):
 
-    # -------------------- USER: VIEW OWN SCORES --------------------
     @jwt_required()
     def get(self):
         user_id = int(get_jwt_identity())
         role = get_jwt()["role"]
 
-        # USER → view own scores
         if role== "user":
             scores = Score.query.filter_by(user_id=user_id).all()
 
@@ -19,7 +17,6 @@ class ScoreAPI(Resource):
                 "scores": [s.to_json() for s in scores]
             }, 200
 
-        # ADMIN → view all scores
         if role == "admin":
             scores = Score.query.all()
 
